@@ -116,6 +116,17 @@ def draw_detection(
                 bbox_drawing_spec.color, bbox_drawing_spec.thickness)
 
 
+def alpha_image_composition(
+  image: np.ndarray,
+  alpha_image: np.ndarray
+) -> None:
+    
+    if image.shape[:1] != alpha_image.shape[:1]:
+        raise ValueError("Input image size invalid")
+    
+    image[:, :] = image[:,:] * (1 - alpha_image[:, :, 3:] / 255) + \
+            alpha_image[:, :, :3] * (alpha_image[:, :, 3:] / 255)
+
 def draw_landmarks(
     image: np.ndarray,
     landmark_list: landmark_pb2.NormalizedLandmarkList,
@@ -150,9 +161,8 @@ def draw_landmarks(
   """
   if not landmark_list:
     return
-  if image.shape[2] != _BGR_CHANNELS:
-    raise ValueError('Input image must contain three channel bgr data.')
   image_rows, image_cols, _ = image.shape
+  alpha_image = np.zeros(image_rows, image_cols, 4)
   idx_to_coordinates = {}
   for idx, landmark in enumerate(landmark_list.landmark):
     if ((landmark.HasField('visibility') and
@@ -176,7 +186,7 @@ def draw_landmarks(
       if start_idx in idx_to_coordinates and end_idx in idx_to_coordinates:
         drawing_spec = connection_drawing_spec[connection] if isinstance(
             connection_drawing_spec, Mapping) else connection_drawing_spec
-        cv2.line(image, idx_to_coordinates[start_idx],
+        cv2.line(alpha_image, idx_to_coordinates[start_idx],
                  idx_to_coordinates[end_idx], drawing_spec.color,
                  drawing_spec.thickness)
   # Draws landmark points after finishing the connection lines, which is
@@ -188,12 +198,17 @@ def draw_landmarks(
       # White circle border
       circle_border_radius = max(drawing_spec.circle_radius + 1,
                                  int(drawing_spec.circle_radius * 1.2))
-      cv2.circle(image, landmark_px, circle_border_radius, WHITE_COLOR,
+      cv2.circle(alpha_image, landmark_px, circle_border_radius, WHITE_COLOR,
                  drawing_spec.thickness)
       # Fill color into the circle
-      cv2.circle(image, landmark_px, drawing_spec.circle_radius,
+      cv2.circle(alpha_image, landmark_px, drawing_spec.circle_radius,
                  drawing_spec.color, drawing_spec.thickness)
 
+  alpha_image[np.any(alpha_image != 0, axis=2), 3] = 255
+
+  alpha_image_composition(image, alpha_image)
+
+  return alpha_image
 
 def draw_axis(image: np.ndarray,
               rotation: np.ndarray,
