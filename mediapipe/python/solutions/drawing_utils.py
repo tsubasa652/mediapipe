@@ -136,7 +136,8 @@ def draw_landmarks(
                                      color=RED_COLOR),
     connection_drawing_spec: Union[DrawingSpec,
                                    Mapping[Tuple[int, int],
-                                           DrawingSpec]] = DrawingSpec()):
+                                           DrawingSpec]] = DrawingSpec(),
+    composition: bool = True):
   """Draws the landmarks and the connections on the image.
 
   Args:
@@ -206,7 +207,8 @@ def draw_landmarks(
 
   alpha_image[np.any(alpha_image != 0, axis=2), 3] = 255
 
-  alpha_image_composition(image, alpha_image)
+  if composition:
+    alpha_image_composition(image, alpha_image)
 
   return alpha_image
 
